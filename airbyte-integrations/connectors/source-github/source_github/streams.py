@@ -1074,10 +1074,12 @@ class TeamMemberships(GithubStream):
         record["username"] = stream_slice["username"]
         return record
 
+
 class TeamRepositories(GithubStream):
     """
     API docs: https://docs.github.com/en/rest/teams/teams#list-team-repositories
     """
+
     primary_key = ["id", "team_slug"]
 
     def __init__(self, parent: Teams, **kwargs):

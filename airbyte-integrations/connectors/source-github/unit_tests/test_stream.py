@@ -779,6 +779,7 @@ def test_stream_team_members_full_refresh():
         {"username": "login2", "organization": "org1", "team_slug": "team2"},
     ]
 
+
 @responses.activate
 def test_stream_team_repositories_full_refresh():
     organization_args = {"organizations": ["org1"]}
