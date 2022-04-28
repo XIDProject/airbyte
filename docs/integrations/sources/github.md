@@ -22,6 +22,7 @@ This connector outputs the following full refresh streams:
 * [Tags](https://docs.github.com/en/rest/reference/repos#list-repository-tags)
 * [TeamMembers](https://docs.github.com/en/rest/teams/members#list-team-members)
 * [TeamMemberships](https://docs.github.com/en/rest/reference/teams#get-team-membership-for-a-user)
+* [TeamRepositories](https://docs.github.com/en/rest/teams/teams#list-team-repositories)
 * [Teams](https://docs.github.com/en/rest/reference/teams#list-teams)
 * [Users](https://docs.github.com/en/rest/reference/orgs#list-organization-members)
 * [Workflows](https://docs.github.com/en/rest/reference/actions#workflows)
