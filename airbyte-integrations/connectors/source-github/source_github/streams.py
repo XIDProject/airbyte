@@ -1074,7 +1074,7 @@ class TeamMemberships(GithubStream):
         record["username"] = stream_slice["username"]
         return record
 
-class TeamRepositories(Organizations):
+class TeamRepositories(GithubStream):
     """
     API docs: https://docs.github.com/en/rest/teams/teams#list-team-repositories
     """
@@ -1099,10 +1099,6 @@ class TeamRepositories(Organizations):
             )
             for record in parent_records:
                 yield {"organization": record["organization"], "team_slug": record["slug"]}
-
-    def parse_response(self, response: requests.Response, stream_slice: Mapping[str, Any] = None, **kwargs) -> Iterable[Mapping]:
-        for record in response.json():  # GitHub puts records in an array.
-            yield self.transform(record=record, stream_slice=stream_slice)
 
     def transform(self, record: MutableMapping[str, Any], stream_slice: Mapping[str, Any]) -> MutableMapping[str, Any]:
         record["organization"] = stream_slice["organization"]

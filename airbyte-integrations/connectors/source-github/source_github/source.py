@@ -226,5 +226,5 @@ class SourceGithub(AbstractSource):
             Workflows(**repository_args),
             WorkflowRuns(**repository_args),
             TeamMemberships(parent=team_members_stream, **repository_args),
-            TeamRepositories(parent=teams_stream, **organization_args),
+            TeamRepositories(parent=teams_stream, **repository_args),
         ]
