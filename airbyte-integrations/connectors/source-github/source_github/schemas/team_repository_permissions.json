@@ -1,0 +1,50 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": ["null", "integer"]
+      },
+      "node_id": {
+        "type": ["null", "string"]
+      },
+      "name": {
+        "type": ["null", "string"]
+      },
+      "full_name": {
+        "type": ["null", "string"]
+      },
+      "permissions": {
+        "type": ["null", "object"],
+        "properties": {
+          "admin": {
+            "type": ["null", "boolean"]
+          },
+          "push": {
+            "type": ["null", "boolean"]
+          },
+          "pull": {
+            "type": ["null", "boolean"]
+          },
+          "maintain": {
+            "type": ["null", "boolean"]
+          },
+          "triage": {
+            "type": ["null", "boolean"]
+          }
+        }
+      },
+      "role_name": {
+        "type": ["null", "string"]
+      },
+      "organization": {
+        "type": "string"
+      },
+      "team_slug": {
+        "type": "string"
+      },
+      "repo_full_name": {
+        "type": "string"
+      }
+    }
+  }

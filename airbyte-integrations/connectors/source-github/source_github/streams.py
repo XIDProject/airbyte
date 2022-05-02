@@ -1106,3 +1106,46 @@ class TeamRepositories(GithubStream):
         record["organization"] = stream_slice["organization"]
         record["team_slug"] = stream_slice["team_slug"]
         return record
+
+class TeamRepositoryPermissions(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/teams/teams#check-team-permissions-for-a-repository
+    """
+
+    primary_key=["id", "team_slug"]
+
+    def __init__(self, parent: TeamRepositories, **kwargs):
+        super().__init__(**kwargs)
+        self.parent = parent
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"orgs/{stream_slice['organization']}/teams/{stream_slice['team_slug']}/repos/{stream_slice['repo_full_name']}"
+
+    def request_headers(self, **kwargs) -> Mapping[str, Any]:
+        # Need to update media type so that we get detailed information about permissions
+        headers = super().request_headers(**kwargs)
+        headers['Accept'] = 'application/vnd.github.v3.repository+json'
+        return headers
+
+    def stream_slices(
+        self, sync_mode: SyncMode, cursor_field: List[str] = None, stream_state: Mapping[str, Any] = None
+    ) -> Iterable[Optional[Mapping[str, Any]]]:
+        parent_stream_slices = self.parent.stream_slices(
+            sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_state=stream_state
+        )
+        for stream_slice in parent_stream_slices:
+            parent_records = self.parent.read_records(
+                sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_slice=stream_slice, stream_state=stream_state
+            )
+            for record in parent_records:
+                yield {"organization": record["organization"], "team_slug": record["team_slug"], "repo_full_name": record["full_name"]}
+
+    def parse_response(self, response: requests.Response, stream_slice: Mapping[str, Any], **kwargs) -> Iterable[Mapping]:
+        yield self.transform(response.json(), stream_slice=stream_slice)
+
+    def transform(self, record: MutableMapping[str, Any], stream_slice: Mapping[str, Any]) -> MutableMapping[str, Any]:
+        record["organization"] = stream_slice["organization"]
+        record["team_slug"] = stream_slice["team_slug"]
+        return record
+
+
