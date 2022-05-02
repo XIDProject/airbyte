@@ -805,9 +805,9 @@ def test_stream_team_repository_permissions_full_refresh():
     responses.add("GET", "https://api.github.com/orgs/org1/teams", json=[{"slug": "team1"}, {"slug": "team2"}])
     responses.add("GET", "https://api.github.com/orgs/org1/teams/team1/repos", json=[{"id": "id1", "full_name": "Auth1/repo1"}, {"id": "id2", "full_name": "Auth2/repo2"}])
     responses.add("GET", "https://api.github.com/orgs/org1/teams/team2/repos", json=[{"id": "id2", "full_name": "Auth2/repo2"}])
-    responses.add("GET", "https://api.github.com/orgs/org1/teams/team1/repos/Auth1/repo1", json=[{"id": "id1", "full_name": "Auth1/repo1", "permissions": { "admin": True }}])
-    responses.add("GET", "https://api.github.com/orgs/org1/teams/team1/repos/Auth2/repo2", json=[{"id": "id2", "full_name": "Auth2/repo2", "permissions": { "admin": True }}])
-    responses.add("GET", "https://api.github.com/orgs/org1/teams/team2/repos/Auth2/repo2", json=[{"id": "id2", "full_name": "Auth2/repo2", "permissions": { "admin": False }}])
+    responses.add("GET", "https://api.github.com/orgs/org1/teams/team1/repos/Auth1/repo1", json={"id": "id1", "full_name": "Auth1/repo1", "permissions": { "admin": True }})
+    responses.add("GET", "https://api.github.com/orgs/org1/teams/team1/repos/Auth2/repo2", json={"id": "id2", "full_name": "Auth2/repo2", "permissions": { "admin": True }})
+    responses.add("GET", "https://api.github.com/orgs/org1/teams/team2/repos/Auth2/repo2", json={"id": "id2", "full_name": "Auth2/repo2", "permissions": { "admin": False }})
 
     teams = TeamRepositories(parent=Teams(**organization_args), **repository_args)
     stream = TeamRepositoryPermissions(parent=teams, **repository_args)
