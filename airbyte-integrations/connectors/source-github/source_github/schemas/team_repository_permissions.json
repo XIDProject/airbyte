@@ -42,9 +42,6 @@
       },
       "team_slug": {
         "type": "string"
-      },
-      "repo_full_name": {
-        "type": "string"
       }
     }
   }
