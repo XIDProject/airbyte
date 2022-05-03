@@ -286,6 +286,27 @@ class Collaborators(GithubStream):
     API docs: https://docs.github.com/en/rest/reference/repos#list-repository-collaborators
     """
 
+class DirectCollaborators(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/reference/repos#list-repository-collaborators
+    """
+    stream_base_params = {
+        "affiliation": "direct"
+    }
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"repos/{stream_slice['repository']}/collaborators"
+
+class OutsideCollaborators(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/reference/repos#list-repository-collaborators
+    """
+    stream_base_params = {
+        "affiliation": "outside"
+    }
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"repos/{stream_slice['repository']}/collaborators"
 
 class IssueLabels(GithubStream):
     """
