@@ -13,7 +13,7 @@
       "format": "date-time"
     },
     "actor": {
-      "type": ["null", "integer"]
+      "type": ["null", "string"]
     },
     "user": {
       "type": ["null", "string"]
