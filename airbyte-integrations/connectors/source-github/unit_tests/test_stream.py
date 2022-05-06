@@ -11,6 +11,7 @@ import responses
 from airbyte_cdk.sources.streams.http.exceptions import BaseBackoffException
 from responses import matchers
 from source_github.streams import (
+    AuditLog,
     Branches,
     Collaborators,
     Comments,
@@ -818,3 +819,15 @@ def test_stream_team_repository_permissions_full_refresh():
         {"id": "id2", "organization": "org1", "team_slug": "team2", "full_name": "Auth2/repo2", "permissions": { "admin": False }},
     ]
 
+@responses.activate
+def test_stream_audit_events_full_refresh():
+    organization_args = {"organizations": ["org1"]}
+
+    responses.add("GET", "https://api.github.com/orgs/org1/audit-log", json=[{"_document_id": "id1", "action": "action1"}, {"_document_id": "id2", "action": "action2"}])
+
+    stream = AuditLog(**organization_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"_document_id": "id1", "action": "action1", "event_json": '{"_document_id": "id1", "action": "action1", "organization": "org1"}', "organization": "org1"},
+        {"_document_id": "id2", "action": "action2", "event_json": '{"_document_id": "id2", "action": "action2", "organization": "org1"}', "organization": "org1"},
+    ]

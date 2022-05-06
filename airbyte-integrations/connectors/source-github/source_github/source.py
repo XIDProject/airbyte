@@ -14,6 +14,7 @@ from airbyte_cdk.sources.streams.http.auth import MultipleTokenAuthenticator
 
 from .streams import (
     Assignees,
+    AuditLog,
     Branches,
     Collaborators,
     DirectCollaborators,
@@ -233,5 +234,6 @@ class SourceGithub(AbstractSource):
             WorkflowRuns(**repository_args),
             TeamMemberships(parent=team_members_stream, **repository_args),
             team_repositories_stream,
-            TeamRepositoryPermissions(parent=team_repositories_stream, **repository_args)
+            TeamRepositoryPermissions(parent=team_repositories_stream, **repository_args),
+            AuditLog(**organization_args)
         ]

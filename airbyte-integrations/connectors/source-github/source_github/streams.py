@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Union
 from urllib import parse
+import json
 
 import requests
 from airbyte_cdk.models import SyncMode
@@ -1169,4 +1170,32 @@ class TeamRepositoryPermissions(GithubStream):
         record["team_slug"] = stream_slice["team_slug"]
         return record
 
+class AuditLog(GithubStream):
+    """
+    API docs: https://docs.github.com/en/enterprise-cloud@latest/rest/orgs/orgs#get-the-audit-log-for-an-organization
+    """
 
+    primary_key=["_document_id"]
+
+    stream_base_params = {
+        "include": "web"
+    }
+
+    # GitHub pagination could be from 1 to 100.
+    page_size = 100
+
+    def __init__(self, organizations: List[str], **kwargs):
+        super(GithubStream, self).__init__(**kwargs)
+        self.organizations = organizations
+
+    def stream_slices(self, **kwargs) -> Iterable[Optional[Mapping[str, any]]]:
+        for organization in self.organizations:
+            yield {"organization": organization}
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"orgs/{stream_slice['organization']}/audit-log"
+
+    def transform(self, record: MutableMapping[str, Any], stream_slice: Mapping[str, Any]) -> MutableMapping[str, Any]:
+        record["organization"] = stream_slice["organization"]
+        record["event_json"] = json.dumps(record)
+        return record
