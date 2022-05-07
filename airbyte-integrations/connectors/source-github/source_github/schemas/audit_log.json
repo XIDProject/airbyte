@@ -9,8 +9,7 @@
       "type": ["string"]
     },
     "created_at": {
-      "type": ["null", "string"],
-      "format": "date-time"
+      "type": ["integer"]
     },
     "actor": {
       "type": ["null", "string"]
