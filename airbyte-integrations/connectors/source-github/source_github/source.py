@@ -23,6 +23,7 @@ from .streams import (
     CommitCommentReactions,
     CommitComments,
     Commits,
+    DeployKeys,
     Deployments,
     Events,
     IssueCommentReactions,
@@ -235,5 +236,6 @@ class SourceGithub(AbstractSource):
             TeamMemberships(parent=team_members_stream, **repository_args),
             team_repositories_stream,
             TeamRepositoryPermissions(parent=team_repositories_stream, **repository_args),
-            AuditLog(**organization_args)
+            AuditLog(**organization_args),
+            DeployKeys(**repository_args)
         ]

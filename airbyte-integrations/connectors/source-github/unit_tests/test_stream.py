@@ -17,6 +17,7 @@ from source_github.streams import (
     Comments,
     CommitComments,
     Commits,
+    DeployKeys,
     Deployments,
     IssueEvents,
     IssueLabels,
@@ -830,4 +831,19 @@ def test_stream_audit_events_full_refresh():
     assert records == [
         {"_document_id": "id1", "action": "action1", "event_json": '{"_document_id": "id1", "action": "action1", "organization": "org1"}', "organization": "org1"},
         {"_document_id": "id2", "action": "action2", "event_json": '{"_document_id": "id2", "action": "action2", "organization": "org1"}', "organization": "org1"},
+    ]
+
+@responses.activate
+def test_stream_deploy_keys_full_refresh():
+    repository_args = {
+        "repositories": ["organization/repository"],
+        "page_size_for_large_streams": 100,
+    }
+    responses.add("GET", "https://api.github.com/repos/organization/repository/keys", json=[{"id": 1, "title": "Test key"}, {"id": 2, "title": "Another test key"}])
+
+    stream = DeployKeys(**repository_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"id": 1, "title": "Test key", "repository": "organization/repository"},
+        {"id": 2, "title": "Another test key", "repository": "organization/repository"}
     ]

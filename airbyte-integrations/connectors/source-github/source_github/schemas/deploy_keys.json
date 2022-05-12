@@ -1,0 +1,28 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": ["integer"]
+      },
+      "key": {
+        "type": ["string"]
+      },
+      "url": {
+        "type": ["string"]
+      },
+      "title": {
+        "type": ["null", "string"]
+      },
+      "verified": {
+        "type": ["null", "boolean"]
+      },
+      "created_at": {
+        "type": ["null", "string"],
+        "format": "date-time"
+      },
+      "read_only": {
+        "type": ["null", "boolean"]
+      }
+    }
+  }

@@ -1199,3 +1199,13 @@ class AuditLog(GithubStream):
         record["organization"] = stream_slice["organization"]
         record["event_json"] = json.dumps(record)
         return record
+
+class DeployKeys(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/deploy-keys#list-deploy-keys
+    """
+
+    primary_key=["id"]
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"repos/{stream_slice['repository']}/keys"
