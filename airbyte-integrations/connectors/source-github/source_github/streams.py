@@ -1265,3 +1265,48 @@ class OrganizationActionSecrets(GithubStream):
         if "secrets" in json_blob:
             for record in json_blob["secrets"]:
                 yield self.transform(record=record, stream_slice=stream_slice)
+
+class OrganizationSecretSelectedRepositories(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/actions/secrets#list-selected-repositories-for-an-organization-secret
+    """
+
+    primary_key=["organization", "secret_name", "id"]
+
+    def __init__(self, parent: OrganizationActionSecrets, **kwargs):
+        super().__init__(**kwargs)
+        self.parent = parent
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"orgs/{stream_slice['organization']}/actions/secrets/{stream_slice['secret_name']}/repositories"
+
+    def stream_slices(
+        self, sync_mode: SyncMode, cursor_field: List[str] = None, stream_state: Mapping[str, Any] = None
+    ) -> Iterable[Optional[Mapping[str, Any]]]:
+        parent_stream_slices = self.parent.stream_slices(
+            sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_state=stream_state
+        )
+        for stream_slice in parent_stream_slices:
+            parent_records = self.parent.read_records(
+                sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_slice=stream_slice, stream_state=stream_state
+            )
+            for record in parent_records:
+                if record["visibility"] == "selected":
+                    yield {"organization": record["organization"], "secret_name": record["name"]}
+
+    def parse_response(
+        self,
+        response: requests.Response,
+        stream_state: Mapping[str, Any],
+        stream_slice: Mapping[str, Any] = None,
+        next_page_token: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping]:
+        json_blob = response.json()
+        if "repositories" in json_blob:
+            for record in json_blob["repositories"]:
+                yield self.transform(record=record, stream_slice=stream_slice)
+
+    def transform(self, record: MutableMapping[str, Any], stream_slice: Mapping[str, Any]) -> MutableMapping[str, Any]:
+        record["organization"] = stream_slice["organization"]
+        record["secret_name"] = stream_slice["secret_name"]
+        return record

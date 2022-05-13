@@ -4,6 +4,7 @@
 
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
+from urllib import response
 
 import pytest
 import requests
@@ -24,6 +25,7 @@ from source_github.streams import (
     IssueMilestones,
     OrganizationActionSecrets,
     Organizations,
+    OrganizationSecretSelectedRepositories,
     ProjectCards,
     ProjectColumns,
     Projects,
@@ -886,4 +888,34 @@ def test_stream_organization_action_secrets_full_refresh():
     assert records == [
         {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z", "organization": "org1"},
         {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z", "organization": "org1"}
+    ]
+
+@responses.activate
+def test_stream_organization_secret_selected_repositories_full_refresh():
+    organization_args = {"organizations": ["org1"]}
+    repository_args = {
+        "repositories": ["organization/repository"],
+        "page_size_for_large_streams": 100,
+    }
+
+    responses.add("GET", "https://api.github.com/orgs/org1/actions/secrets", json={
+        "secrets": [
+            {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z", "visibility": "private"},
+            {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z", "visibility": "selected"}
+            ]
+    })
+    responses.add("GET", "https://api.github.com/orgs/org1/actions/secrets/TEST_SECRET2/repositories", json={
+        "repositories": [
+            {
+                "id": 123,
+                "name": "repo1",
+                "full_name": "org1/repo1"
+            }
+        ]
+    })
+
+    stream = OrganizationSecretSelectedRepositories(parent = OrganizationActionSecrets(**organization_args), **repository_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"id": 123, "name": "repo1", "full_name": "org1/repo1", "organization": "org1", "secret_name": "TEST_SECRET2"},
     ]

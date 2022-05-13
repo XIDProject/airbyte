@@ -19,6 +19,7 @@ from .streams import (
     Collaborators,
     DirectCollaborators,
     OrganizationActionSecrets,
+    OrganizationSecretSelectedRepositories,
     OutsideCollaborators,
     Comments,
     CommitCommentReactions,
@@ -197,6 +198,7 @@ class SourceGithub(AbstractSource):
         teams_stream = Teams(**organization_args)
         team_members_stream = TeamMembers(parent=teams_stream, **repository_args)
         team_repositories_stream = TeamRepositories(parent=teams_stream, **repository_args)
+        organization_action_secrets = OrganizationActionSecrets(**organization_args)
 
         return [
             Assignees(**repository_args),
@@ -241,5 +243,6 @@ class SourceGithub(AbstractSource):
             AuditLog(**organization_args),
             DeployKeys(**repository_args),
             RepositoryActionSecrets(**repository_args),
-            OrganizationActionSecrets(**organization_args)
+            organization_action_secrets,
+            OrganizationSecretSelectedRepositories(parent=organization_action_secrets, **repository_args)
         ]
