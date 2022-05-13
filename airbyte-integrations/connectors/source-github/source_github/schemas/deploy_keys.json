@@ -23,6 +23,9 @@
       },
       "read_only": {
         "type": ["null", "boolean"]
+      },
+      "repository": {
+        "type": ["string"]
       }
     }
   }
