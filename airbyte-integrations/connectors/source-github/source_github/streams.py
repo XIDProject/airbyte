@@ -1209,3 +1209,25 @@ class DeployKeys(GithubStream):
 
     def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
         return f"repos/{stream_slice['repository']}/keys"
+
+class RepositoryActionSecrets(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/actions/secrets#list-repository-secrets
+    """
+
+    primary_key=["repository", "name"]
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"repos/{stream_slice['repository']}/actions/secrets"
+
+    def parse_response(
+        self,
+        response: requests.Response,
+        stream_state: Mapping[str, Any],
+        stream_slice: Mapping[str, Any] = None,
+        next_page_token: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping]:
+        json_blob = response.json()
+        if "secrets" in json_blob:
+            for record in json_blob["secrets"]:
+                yield self.transform(record=record, stream_slice=stream_slice)

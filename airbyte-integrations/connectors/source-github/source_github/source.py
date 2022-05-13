@@ -42,6 +42,7 @@ from .streams import (
     PullRequestStats,
     Releases,
     Repositories,
+    RepositoryActionSecrets,
     RepositoryStats,
     ReviewComments,
     Reviews,
@@ -237,5 +238,6 @@ class SourceGithub(AbstractSource):
             team_repositories_stream,
             TeamRepositoryPermissions(parent=team_repositories_stream, **repository_args),
             AuditLog(**organization_args),
-            DeployKeys(**repository_args)
+            DeployKeys(**repository_args),
+            RepositoryActionSecrets(**repository_args)
         ]

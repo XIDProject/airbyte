@@ -31,6 +31,7 @@ from source_github.streams import (
     PullRequests,
     Releases,
     Repositories,
+    RepositoryActionSecrets,
     Reviews,
     Stargazers,
     Tags,
@@ -846,4 +847,24 @@ def test_stream_deploy_keys_full_refresh():
     assert records == [
         {"id": 1, "title": "Test key", "repository": "organization/repository"},
         {"id": 2, "title": "Another test key", "repository": "organization/repository"}
+    ]
+
+@responses.activate
+def test_stream_repository_action_secrets_full_refresh():
+    repository_args = {
+        "repositories": ["organization/repository"],
+        "page_size_for_large_streams": 100,
+    }
+    responses.add("GET", "https://api.github.com/repos/organization/repository/actions/secrets", json={
+        "secrets": [
+            {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z"},
+            {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z"}
+            ]
+    })
+
+    stream = RepositoryActionSecrets(**repository_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z", "repository": "organization/repository"},
+        {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z", "repository": "organization/repository"}
     ]
