@@ -22,6 +22,7 @@ from source_github.streams import (
     IssueEvents,
     IssueLabels,
     IssueMilestones,
+    OrganizationActionSecrets,
     Organizations,
     ProjectCards,
     ProjectColumns,
@@ -867,4 +868,22 @@ def test_stream_repository_action_secrets_full_refresh():
     assert records == [
         {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z", "repository": "organization/repository"},
         {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z", "repository": "organization/repository"}
+    ]
+
+@responses.activate
+def test_stream_organization_action_secrets_full_refresh():
+    organization_args = {"organizations": ["org1"]}
+
+    responses.add("GET", "https://api.github.com/orgs/org1/actions/secrets", json={
+        "secrets": [
+            {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z"},
+            {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z"}
+            ]
+    })
+
+    stream = OrganizationActionSecrets(**organization_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z", "organization": "org1"},
+        {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z", "organization": "org1"}
     ]

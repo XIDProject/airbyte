@@ -18,6 +18,7 @@ from .streams import (
     Branches,
     Collaborators,
     DirectCollaborators,
+    OrganizationActionSecrets,
     OutsideCollaborators,
     Comments,
     CommitCommentReactions,
@@ -239,5 +240,6 @@ class SourceGithub(AbstractSource):
             TeamRepositoryPermissions(parent=team_repositories_stream, **repository_args),
             AuditLog(**organization_args),
             DeployKeys(**repository_args),
-            RepositoryActionSecrets(**repository_args)
+            RepositoryActionSecrets(**repository_args),
+            OrganizationActionSecrets(**organization_args)
         ]

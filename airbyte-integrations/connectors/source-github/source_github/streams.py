@@ -1231,3 +1231,37 @@ class RepositoryActionSecrets(GithubStream):
         if "secrets" in json_blob:
             for record in json_blob["secrets"]:
                 yield self.transform(record=record, stream_slice=stream_slice)
+
+class OrganizationActionSecrets(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/actions/secrets#list-organization-secrets
+    """
+
+    primary_key=["organization", "name"]
+
+    def __init__(self, organizations: List[str], **kwargs):
+        super(GithubStream, self).__init__(**kwargs)
+        self.organizations = organizations
+
+    def stream_slices(self, **kwargs) -> Iterable[Optional[Mapping[str, any]]]:
+        for organization in self.organizations:
+            yield {"organization": organization}
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"orgs/{stream_slice['organization']}/actions/secrets"
+
+    def transform(self, record: MutableMapping[str, Any], stream_slice: Mapping[str, Any]) -> MutableMapping[str, Any]:
+        record["organization"] = stream_slice["organization"]
+        return record
+
+    def parse_response(
+        self,
+        response: requests.Response,
+        stream_state: Mapping[str, Any],
+        stream_slice: Mapping[str, Any] = None,
+        next_page_token: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping]:
+        json_blob = response.json()
+        if "secrets" in json_blob:
+            for record in json_blob["secrets"]:
+                yield self.transform(record=record, stream_slice=stream_slice)
