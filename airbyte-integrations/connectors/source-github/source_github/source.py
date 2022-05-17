@@ -15,6 +15,7 @@ from airbyte_cdk.sources.streams.http.auth import MultipleTokenAuthenticator
 from .streams import (
     Assignees,
     AuditLog,
+    BranchProtections,
     Branches,
     Collaborators,
     DirectCollaborators,
@@ -192,6 +193,8 @@ class SourceGithub(AbstractSource):
         repository_args_with_start_date = {**repository_args, "start_date": config["start_date"]}
 
         default_branches, branches_to_pull = self._get_branches_data(config.get("branch", ""), repository_args)
+
+        branches = Branches(**repository_args)
         pull_requests_stream = PullRequests(**repository_args_with_start_date)
         projects_stream = Projects(**repository_args_with_start_date)
         project_columns_stream = ProjectColumns(projects_stream, **repository_args_with_start_date)
@@ -202,7 +205,7 @@ class SourceGithub(AbstractSource):
 
         return [
             Assignees(**repository_args),
-            Branches(**repository_args),
+            branches,
             Collaborators(**repository_args),
             DirectCollaborators(**repository_args),
             OutsideCollaborators(**repository_args),
@@ -244,5 +247,6 @@ class SourceGithub(AbstractSource):
             DeployKeys(**repository_args),
             RepositoryActionSecrets(**repository_args),
             organization_action_secrets,
-            OrganizationSecretSelectedRepositories(parent=organization_action_secrets, **repository_args)
+            OrganizationSecretSelectedRepositories(parent=organization_action_secrets, **repository_args),
+            BranchProtections(parent=branches, **repository_args)
         ]
