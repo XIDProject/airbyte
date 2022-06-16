@@ -4,6 +4,7 @@
 
 from http import HTTPStatus
 from unittest.mock import MagicMock, patch
+from urllib import response
 
 import pytest
 import requests
@@ -11,16 +12,20 @@ import responses
 from airbyte_cdk.sources.streams.http.exceptions import BaseBackoffException
 from responses import matchers
 from source_github.streams import (
+    AuditLog,
     Branches,
     Collaborators,
     Comments,
     CommitComments,
     Commits,
+    DeployKeys,
     Deployments,
     IssueEvents,
     IssueLabels,
     IssueMilestones,
+    OrganizationActionSecrets,
     Organizations,
+    OrganizationSecretSelectedRepositories,
     ProjectCards,
     ProjectColumns,
     Projects,
@@ -29,11 +34,14 @@ from source_github.streams import (
     PullRequests,
     Releases,
     Repositories,
+    RepositoryActionSecrets,
     Reviews,
     Stargazers,
     Tags,
     TeamMembers,
     TeamMemberships,
+    TeamRepositories,
+    TeamRepositoryPermissions,
     Teams,
     Users,
 )
@@ -776,4 +784,138 @@ def test_stream_team_members_full_refresh():
         {"username": "login1", "organization": "org1", "team_slug": "team1"},
         {"username": "login2", "organization": "org1", "team_slug": "team1"},
         {"username": "login2", "organization": "org1", "team_slug": "team2"},
+    ]
+
+
+@responses.activate
+def test_stream_team_repositories_full_refresh():
+    organization_args = {"organizations": ["org1"]}
+    repository_args = {"repositories": [], "page_size_for_large_streams": 100}
+    responses.add("GET", "https://api.github.com/orgs/org1/teams", json=[{"slug": "team1"}, {"slug": "team2"}])
+    responses.add("GET", "https://api.github.com/orgs/org1/teams/team1/repos", json=[{"id": "id1"}, {"id": "id2"}])
+    responses.add("GET", "https://api.github.com/orgs/org1/teams/team2/repos", json=[{"id": "id2"}])
+
+    stream = TeamRepositories(parent=Teams(**organization_args), **repository_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"id": "id1", "organization": "org1", "team_slug": "team1"},
+        {"id": "id2", "organization": "org1", "team_slug": "team1"},
+        {"id": "id2", "organization": "org1", "team_slug": "team2"},
+    ]
+
+@responses.activate
+def test_stream_team_repository_permissions_full_refresh():
+    organization_args = {"organizations": ["org1"]}
+    repository_args = {"repositories": [], "page_size_for_large_streams": 100}
+
+    responses.add("GET", "https://api.github.com/orgs/org1/teams", json=[{"slug": "team1"}, {"slug": "team2"}])
+    responses.add("GET", "https://api.github.com/orgs/org1/teams/team1/repos", json=[{"id": "id1", "full_name": "Auth1/repo1"}, {"id": "id2", "full_name": "Auth2/repo2"}])
+    responses.add("GET", "https://api.github.com/orgs/org1/teams/team2/repos", json=[{"id": "id2", "full_name": "Auth2/repo2"}])
+    responses.add("GET", "https://api.github.com/orgs/org1/teams/team1/repos/Auth1/repo1", json={"id": "id1", "full_name": "Auth1/repo1", "permissions": { "admin": True }})
+    responses.add("GET", "https://api.github.com/orgs/org1/teams/team1/repos/Auth2/repo2", json={"id": "id2", "full_name": "Auth2/repo2", "permissions": { "admin": True }})
+    responses.add("GET", "https://api.github.com/orgs/org1/teams/team2/repos/Auth2/repo2", json={"id": "id2", "full_name": "Auth2/repo2", "permissions": { "admin": False }})
+
+    teams = TeamRepositories(parent=Teams(**organization_args), **repository_args)
+    stream = TeamRepositoryPermissions(parent=teams, **repository_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"id": "id1", "organization": "org1", "team_slug": "team1", "full_name": "Auth1/repo1", "permissions": { "admin": True }},
+        {"id": "id2", "organization": "org1", "team_slug": "team1", "full_name": "Auth2/repo2", "permissions": { "admin": True }},
+        {"id": "id2", "organization": "org1", "team_slug": "team2", "full_name": "Auth2/repo2", "permissions": { "admin": False }},
+    ]
+
+@responses.activate
+def test_stream_audit_events_full_refresh():
+    organization_args = {"organizations": ["org1"]}
+
+    responses.add("GET", "https://api.github.com/orgs/org1/audit-log", json=[{"_document_id": "id1", "action": "action1"}, {"_document_id": "id2", "action": "action2"}])
+
+    stream = AuditLog(**organization_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"_document_id": "id1", "action": "action1", "event_json": '{"_document_id": "id1", "action": "action1", "organization": "org1"}', "organization": "org1"},
+        {"_document_id": "id2", "action": "action2", "event_json": '{"_document_id": "id2", "action": "action2", "organization": "org1"}', "organization": "org1"},
+    ]
+
+@responses.activate
+def test_stream_deploy_keys_full_refresh():
+    repository_args = {
+        "repositories": ["organization/repository"],
+        "page_size_for_large_streams": 100,
+    }
+    responses.add("GET", "https://api.github.com/repos/organization/repository/keys", json=[{"id": 1, "title": "Test key"}, {"id": 2, "title": "Another test key"}])
+
+    stream = DeployKeys(**repository_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"id": 1, "title": "Test key", "repository": "organization/repository"},
+        {"id": 2, "title": "Another test key", "repository": "organization/repository"}
+    ]
+
+@responses.activate
+def test_stream_repository_action_secrets_full_refresh():
+    repository_args = {
+        "repositories": ["organization/repository"],
+        "page_size_for_large_streams": 100,
+    }
+    responses.add("GET", "https://api.github.com/repos/organization/repository/actions/secrets", json={
+        "secrets": [
+            {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z"},
+            {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z"}
+            ]
+    })
+
+    stream = RepositoryActionSecrets(**repository_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z", "repository": "organization/repository"},
+        {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z", "repository": "organization/repository"}
+    ]
+
+@responses.activate
+def test_stream_organization_action_secrets_full_refresh():
+    organization_args = {"organizations": ["org1"]}
+
+    responses.add("GET", "https://api.github.com/orgs/org1/actions/secrets", json={
+        "secrets": [
+            {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z"},
+            {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z"}
+            ]
+    })
+
+    stream = OrganizationActionSecrets(**organization_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z", "organization": "org1"},
+        {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z", "organization": "org1"}
+    ]
+
+@responses.activate
+def test_stream_organization_secret_selected_repositories_full_refresh():
+    organization_args = {"organizations": ["org1"]}
+    repository_args = {
+        "repositories": ["organization/repository"],
+        "page_size_for_large_streams": 100,
+    }
+
+    responses.add("GET", "https://api.github.com/orgs/org1/actions/secrets", json={
+        "secrets": [
+            {"name": "TEST_SECRET1", "created_at": "2022-05-12T23:08:27Z", "visibility": "private"},
+            {"name": "TEST_SECRET2", "created_at": "2022-05-12T23:08:27Z", "visibility": "selected"}
+            ]
+    })
+    responses.add("GET", "https://api.github.com/orgs/org1/actions/secrets/TEST_SECRET2/repositories", json={
+        "repositories": [
+            {
+                "id": 123,
+                "name": "repo1",
+                "full_name": "org1/repo1"
+            }
+        ]
+    })
+
+    stream = OrganizationSecretSelectedRepositories(parent = OrganizationActionSecrets(**organization_args), **repository_args)
+    records = read_full_refresh(stream)
+    assert records == [
+        {"id": 123, "name": "repo1", "full_name": "org1/repo1", "organization": "org1", "secret_name": "TEST_SECRET2"},
     ]

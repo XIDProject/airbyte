@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Union
 from urllib import parse
+import json
 
 import requests
 from airbyte_cdk.models import SyncMode
@@ -286,6 +287,27 @@ class Collaborators(GithubStream):
     API docs: https://docs.github.com/en/rest/reference/repos#list-repository-collaborators
     """
 
+class DirectCollaborators(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/reference/repos#list-repository-collaborators
+    """
+    stream_base_params = {
+        "affiliation": "direct"
+    }
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"repos/{stream_slice['repository']}/collaborators"
+
+class OutsideCollaborators(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/reference/repos#list-repository-collaborators
+    """
+    stream_base_params = {
+        "affiliation": "outside"
+    }
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"repos/{stream_slice['repository']}/collaborators"
 
 class IssueLabels(GithubStream):
     """
@@ -1073,3 +1095,255 @@ class TeamMemberships(GithubStream):
         record["team_slug"] = stream_slice["team_slug"]
         record["username"] = stream_slice["username"]
         return record
+
+
+class TeamRepositories(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/teams/teams#list-team-repositories
+    """
+
+    primary_key = ["id", "team_slug"]
+
+    def __init__(self, parent: Teams, **kwargs):
+        super().__init__(**kwargs)
+        self.parent = parent
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"orgs/{stream_slice['organization']}/teams/{stream_slice['team_slug']}/repos"
+
+    def stream_slices(
+        self, sync_mode: SyncMode, cursor_field: List[str] = None, stream_state: Mapping[str, Any] = None
+    ) -> Iterable[Optional[Mapping[str, Any]]]:
+        parent_stream_slices = self.parent.stream_slices(
+            sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_state=stream_state
+        )
+        for stream_slice in parent_stream_slices:
+            parent_records = self.parent.read_records(
+                sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_slice=stream_slice, stream_state=stream_state
+            )
+            for record in parent_records:
+                yield {"organization": record["organization"], "team_slug": record["slug"]}
+
+    def transform(self, record: MutableMapping[str, Any], stream_slice: Mapping[str, Any]) -> MutableMapping[str, Any]:
+        record["organization"] = stream_slice["organization"]
+        record["team_slug"] = stream_slice["team_slug"]
+        return record
+
+class TeamRepositoryPermissions(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/teams/teams#check-team-permissions-for-a-repository
+    """
+
+    primary_key=["id", "team_slug"]
+
+    def __init__(self, parent: TeamRepositories, **kwargs):
+        super().__init__(**kwargs)
+        self.parent = parent
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"orgs/{stream_slice['organization']}/teams/{stream_slice['team_slug']}/repos/{stream_slice['repo_full_name']}"
+
+    def request_headers(self, **kwargs) -> Mapping[str, Any]:
+        # Need to update media type so that we get detailed information about permissions
+        headers = super().request_headers(**kwargs)
+        headers['Accept'] = 'application/vnd.github.v3.repository+json'
+        return headers
+
+    def stream_slices(
+        self, sync_mode: SyncMode, cursor_field: List[str] = None, stream_state: Mapping[str, Any] = None
+    ) -> Iterable[Optional[Mapping[str, Any]]]:
+        parent_stream_slices = self.parent.stream_slices(
+            sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_state=stream_state
+        )
+        for stream_slice in parent_stream_slices:
+            parent_records = self.parent.read_records(
+                sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_slice=stream_slice, stream_state=stream_state
+            )
+            for record in parent_records:
+                yield {"organization": record["organization"], "team_slug": record["team_slug"], "repo_full_name": record["full_name"]}
+
+    def parse_response(self, response: requests.Response, stream_slice: Mapping[str, Any], **kwargs) -> Iterable[Mapping]:
+        yield self.transform(response.json(), stream_slice=stream_slice)
+
+    def transform(self, record: MutableMapping[str, Any], stream_slice: Mapping[str, Any]) -> MutableMapping[str, Any]:
+        record["organization"] = stream_slice["organization"]
+        record["team_slug"] = stream_slice["team_slug"]
+        return record
+
+class AuditLog(GithubStream):
+    """
+    API docs: https://docs.github.com/en/enterprise-cloud@latest/rest/orgs/orgs#get-the-audit-log-for-an-organization
+    """
+
+    primary_key=["_document_id"]
+
+    stream_base_params = {
+        "include": "web"
+    }
+
+    # GitHub pagination could be from 1 to 100.
+    page_size = 100
+
+    def __init__(self, organizations: List[str], **kwargs):
+        super(GithubStream, self).__init__(**kwargs)
+        self.organizations = organizations
+
+    def stream_slices(self, **kwargs) -> Iterable[Optional[Mapping[str, any]]]:
+        for organization in self.organizations:
+            yield {"organization": organization}
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"orgs/{stream_slice['organization']}/audit-log"
+
+    def transform(self, record: MutableMapping[str, Any], stream_slice: Mapping[str, Any]) -> MutableMapping[str, Any]:
+        record["organization"] = stream_slice["organization"]
+        record["event_json"] = json.dumps(record)
+        return record
+
+class DeployKeys(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/deploy-keys#list-deploy-keys
+    """
+
+    primary_key=["id"]
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"repos/{stream_slice['repository']}/keys"
+
+class RepositoryActionSecrets(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/actions/secrets#list-repository-secrets
+    """
+
+    primary_key=["repository", "name"]
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"repos/{stream_slice['repository']}/actions/secrets"
+
+    def parse_response(
+        self,
+        response: requests.Response,
+        stream_state: Mapping[str, Any],
+        stream_slice: Mapping[str, Any] = None,
+        next_page_token: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping]:
+        json_blob = response.json()
+        if "secrets" in json_blob:
+            for record in json_blob["secrets"]:
+                yield self.transform(record=record, stream_slice=stream_slice)
+
+class OrganizationActionSecrets(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/actions/secrets#list-organization-secrets
+    """
+
+    primary_key=["organization", "name"]
+
+    def __init__(self, organizations: List[str], **kwargs):
+        super(GithubStream, self).__init__(**kwargs)
+        self.organizations = organizations
+
+    def stream_slices(self, **kwargs) -> Iterable[Optional[Mapping[str, any]]]:
+        for organization in self.organizations:
+            yield {"organization": organization}
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"orgs/{stream_slice['organization']}/actions/secrets"
+
+    def transform(self, record: MutableMapping[str, Any], stream_slice: Mapping[str, Any]) -> MutableMapping[str, Any]:
+        record["organization"] = stream_slice["organization"]
+        return record
+
+    def parse_response(
+        self,
+        response: requests.Response,
+        stream_state: Mapping[str, Any],
+        stream_slice: Mapping[str, Any] = None,
+        next_page_token: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping]:
+        json_blob = response.json()
+        if "secrets" in json_blob:
+            for record in json_blob["secrets"]:
+                yield self.transform(record=record, stream_slice=stream_slice)
+
+class OrganizationSecretSelectedRepositories(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/actions/secrets#list-selected-repositories-for-an-organization-secret
+    """
+
+    primary_key=["organization", "secret_name", "id"]
+
+    def __init__(self, parent: OrganizationActionSecrets, **kwargs):
+        super().__init__(**kwargs)
+        self.parent = parent
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"orgs/{stream_slice['organization']}/actions/secrets/{stream_slice['secret_name']}/repositories"
+
+    def stream_slices(
+        self, sync_mode: SyncMode, cursor_field: List[str] = None, stream_state: Mapping[str, Any] = None
+    ) -> Iterable[Optional[Mapping[str, Any]]]:
+        parent_stream_slices = self.parent.stream_slices(
+            sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_state=stream_state
+        )
+        for stream_slice in parent_stream_slices:
+            parent_records = self.parent.read_records(
+                sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_slice=stream_slice, stream_state=stream_state
+            )
+            for record in parent_records:
+                if record["visibility"] == "selected":
+                    yield {"organization": record["organization"], "secret_name": record["name"]}
+
+    def parse_response(
+        self,
+        response: requests.Response,
+        stream_state: Mapping[str, Any],
+        stream_slice: Mapping[str, Any] = None,
+        next_page_token: Mapping[str, Any] = None,
+    ) -> Iterable[Mapping]:
+        json_blob = response.json()
+        if "repositories" in json_blob:
+            for record in json_blob["repositories"]:
+                yield self.transform(record=record, stream_slice=stream_slice)
+
+    def transform(self, record: MutableMapping[str, Any], stream_slice: Mapping[str, Any]) -> MutableMapping[str, Any]:
+        record["organization"] = stream_slice["organization"]
+        record["secret_name"] = stream_slice["secret_name"]
+        return record
+
+class BranchProtections(GithubStream):
+    """
+    API docs: https://docs.github.com/en/rest/branches/branch-protection#get-branch-protection
+    """
+
+    primary_key = ["repository", "branch_name"]
+
+    def __init__(self, parent: Branches, **kwargs):
+        super().__init__(**kwargs)
+        self.parent = parent
+
+    def path(self, stream_slice: Mapping[str, Any] = None, **kwargs) -> str:
+        return f"repos/{stream_slice['repository']}/branches/{stream_slice['branch_name']}/protection"
+
+    def stream_slices(
+        self, sync_mode: SyncMode, cursor_field: List[str] = None, stream_state: Mapping[str, Any] = None
+    ) -> Iterable[Optional[Mapping[str, Any]]]:
+        parent_stream_slices = self.parent.stream_slices(
+            sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_state=stream_state
+        )
+        for stream_slice in parent_stream_slices:
+            parent_records = self.parent.read_records(
+                sync_mode=SyncMode.full_refresh, cursor_field=cursor_field, stream_slice=stream_slice, stream_state=stream_state
+            )
+            for record in parent_records:
+                if record["protected"]:
+                    yield {"repository": record["repository"], "branch_name": record["name"]}
+
+    def parse_response(self, response: requests.Response, stream_slice: Mapping[str, Any] = None, **kwargs) -> Iterable[Mapping]:
+        yield response.json()
+
+    def transform(self, record: MutableMapping[str, Any], stream_slice: Mapping[str, Any]) -> MutableMapping[str, Any]:
+        record["respository"] = stream_slice["repository"]
+        record["branch_name"] = stream_slice["branch_name"]
+        return record
+

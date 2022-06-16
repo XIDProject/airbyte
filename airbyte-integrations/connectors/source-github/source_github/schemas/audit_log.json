@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "action": {
+      "type": ["string"]
+    },
+    "organization": {
+      "type": ["string"]
+    },
+    "created_at": {
+      "type": ["integer"]
+    },
+    "actor": {
+      "type": ["null", "string"]
+    },
+    "user": {
+      "type": ["null", "string"]
+    },
+    "_document_id": {
+      "type": ["string"]
+    },
+    "event_json": {
+      "type": ["string"]
+    }
+  }
+}
